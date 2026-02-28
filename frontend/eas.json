@@ -1,14 +1,30 @@
 {
+  "cli": {
+    "version": ">= 15.0.10",
+    "appVersionSource": "remote"
+  },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000"
+      }
+    },
     "preview": {
-      "android": {
-        "buildType": "apk"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://your-staging-api.com"
       }
     },
     "production": {
-      "android": {
-        "buildType": "app-bundle"
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://your-production-api.com"
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }
