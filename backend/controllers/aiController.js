@@ -6,9 +6,9 @@ const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.
 
 exports.startInterview = async (req, res) => {
   const { jobTitle, userId } = req.body;
-  
+
   console.log('Starting interview for:', { jobTitle, userId });
-  
+
   const systemPrompt = `You are a professional and friendly technical interviewer conducting a ${jobTitle} interview. 
 
 Your role:
@@ -19,7 +19,7 @@ Your role:
 - Show genuine interest in their answers
 
 Start with a warm greeting and the first question.`;
-  
+
   try {
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
@@ -28,7 +28,7 @@ Start with a warm greeting and the first question.`;
 
     const firstQuestion = response.choices[0].message.content;
     console.log('Got first question from Groq');
-    
+
     // Save new interview to Supabase
     const { data, error } = await supabase.from('interviews').insert([{
       user_id: userId,
@@ -52,14 +52,14 @@ Start with a warm greeting and the first question.`;
 
 exports.processAnswer = async (req, res) => {
   const { interviewId, answer, transcript } = req.body;
-  
+
   console.log('Processing answer for interview:', interviewId);
-  
+
   try {
     // Validate answer quality
     const answerLength = answer.trim().length;
     const wordCount = answer.trim().split(/\s+/).length;
-    
+
     // If answer is too short, push back
     if (wordCount <= 3 || answerLength < 20) {
       return res.json({
@@ -69,7 +69,7 @@ exports.processAnswer = async (req, res) => {
         needsElaboration: true
       });
     }
-    
+
     // Get current interview data
     const { data: interview, error: fetchError } = await supabase
       .from('interviews')
@@ -81,7 +81,7 @@ exports.processAnswer = async (req, res) => {
 
     const currentQuestionCount = interview.question_count || 1;
     const updatedTranscript = [...transcript, { role: 'user', content: answer }];
-    
+
     // Clean messages - remove any extra properties like 'id' that Groq doesn't accept
     const cleanedMessages = updatedTranscript.map(msg => ({
       role: msg.role,
@@ -121,15 +121,15 @@ Format your response clearly with sections.`;
       // Update interview with evaluation
       await supabase
         .from('interviews')
-        .update({ 
+        .update({
           transcript: updatedTranscript,
           evaluation: evaluation,
           completed: true
         })
         .eq('id', interviewId);
 
-      return res.json({ 
-        isComplete: true, 
+      return res.json({
+        isComplete: true,
         evaluation: evaluation,
         nextMessage: "Thank you for completing the interview! Let me prepare your evaluation..."
       });
@@ -154,21 +154,21 @@ Guidelines:
     });
 
     const aiMessage = response.choices[0].message.content;
-    
+
     // Update transcript and question count
     const newTranscript = [...updatedTranscript, { role: 'assistant', content: aiMessage }];
     await supabase
       .from('interviews')
-      .update({ 
+      .update({
         transcript: newTranscript,
         question_count: nextQuestionCount
       })
       .eq('id', interviewId);
 
-    res.json({ 
-      nextMessage: aiMessage, 
+    res.json({
+      nextMessage: aiMessage,
       questionNumber: nextQuestionCount,
-      isComplete: false 
+      isComplete: false
     });
   } catch (err) {
     console.error('processAnswer error:', err);
@@ -178,9 +178,9 @@ Guidelines:
 
 exports.getEvaluation = async (req, res) => {
   const { interviewId } = req.params;
-  
+
   console.log('Fetching evaluation for interview:', interviewId);
-  
+
   try {
     const { data, error } = await supabase
       .from('interviews')
@@ -189,17 +189,38 @@ exports.getEvaluation = async (req, res) => {
       .single();
 
     if (error) throw new Error(`Failed to fetch evaluation: ${error.message}`);
-    
+
     if (!data.completed) {
       return res.status(400).json({ error: 'Interview not yet completed' });
     }
 
-    res.json({ 
+    res.json({
       evaluation: data.evaluation,
       jobTitle: data.job_title
     });
   } catch (err) {
     console.error('getEvaluation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getHistory = async (req, res) => {
+  const { userId } = req.params;
+
+  console.log('Fetching history for user:', userId);
+
+  try {
+    const { data, error } = await supabase
+      .from('interviews')
+      .select('id, job_title, created_at, completed')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to fetch history: ${error.message}`);
+
+    res.json(data || []);
+  } catch (err) {
+    console.error('getHistory error:', err);
     res.status(500).json({ error: err.message });
   }
 };

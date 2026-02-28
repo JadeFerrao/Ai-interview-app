@@ -7,7 +7,7 @@ export default function Home() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState('Junior Developer');
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   const roles = [
     'Junior Developer',
     'Senior Developer',
@@ -27,7 +27,7 @@ export default function Home() {
     setSelectedRole(role);
     setModalVisible(false);
   };
-  
+
   return (
     <ExpoLinearGradient
       colors={['#667eea', '#764ba2', '#f093fb']}
@@ -38,10 +38,10 @@ export default function Home() {
       <View style={styles.contentCard}>
         <Text style={styles.title}>Ready for your interview?</Text>
         <Text style={styles.subtitle}>Let's ace this together</Text>
-        
+
         <View style={styles.pickerContainer}>
           <Text style={styles.label}>Select Your Role</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dropdown}
             onPress={() => setModalVisible(true)}
             activeOpacity={0.7}
@@ -53,7 +53,7 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.startButton}
           onPress={handleStartInterview}
           activeOpacity={0.8}
@@ -66,6 +66,14 @@ export default function Home() {
           >
             <Text style={styles.startButtonText}>Start Interview</Text>
           </ExpoLinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push('/history')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.historyButtonText}>View History</Text>
         </TouchableOpacity>
       </View>
 
@@ -100,7 +108,7 @@ export default function Home() {
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => setModalVisible(false)}
             >
@@ -204,7 +212,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startButtonText: {
-    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  historyButton: {
+    width: '100%',
+    paddingVertical: 18,
+    marginTop: 15,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#667eea',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  historyButtonText: {
+    color: '#667eea',
     fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.5,
