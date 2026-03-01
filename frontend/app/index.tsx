@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput } 
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import { getStoredUser, storeUser } from '../services/userService';
+import { getStoredUser, storeUser, clearUser } from '../services/userService';
 
 export default function Home() {
   const router = useRouter();
@@ -34,7 +34,16 @@ export default function Home() {
       setUserName(user.userName);
       setUserId(user.userId);
       setNameInputModalVisible(false);
+      setTempName(''); // Clear for next time
     }
+  };
+
+  const handleLogout = async () => {
+    await clearUser();
+    setUserName(null);
+    setUserId(null);
+    setTempName('');
+    setNameInputModalVisible(true);
   };
 
   const roles = [
@@ -107,6 +116,16 @@ export default function Home() {
         >
           <Text style={styles.historyButtonText}>View History</Text>
         </TouchableOpacity>
+
+        {userName && (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.logoutButtonText}>Switch User</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <Modal
@@ -385,5 +404,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     color: '#2d3748',
+  },
+  logoutButton: {
+    paddingVertical: 10,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#718096',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
