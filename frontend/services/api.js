@@ -1,10 +1,16 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'; // Update this to your backend URL
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/interview-handler`;
+
 
 export async function startInterview(role, userId) {
   try {
-    const response = await fetch(`${BASE_URL}/api/interview/start`, {
+    const response = await fetch(`${FUNCTION_URL}/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
       body: JSON.stringify({ jobTitle: role, userId }),
     });
     if (!response.ok) {
@@ -29,9 +35,12 @@ export async function sendAnswer(interviewId, answer, history) {
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const response = await fetch(`${BASE_URL}/api/interview/answer`, {
+      const response = await fetch(`${FUNCTION_URL}/answer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        },
         body: JSON.stringify({ interviewId, answer, transcript: history }),
       });
 
@@ -89,9 +98,12 @@ export async function sendAnswer(interviewId, answer, history) {
 
 export async function getEvaluation(interviewId) {
   try {
-    const response = await fetch(`${BASE_URL}/api/interview/evaluation/${interviewId}`, {
+    const response = await fetch(`${FUNCTION_URL}/evaluation/${interviewId}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
@@ -108,9 +120,12 @@ export async function getEvaluation(interviewId) {
 
 export async function getHistory(userId) {
   try {
-    const response = await fetch(`${BASE_URL}/api/interview/history/${userId}`, {
+    const response = await fetch(`${FUNCTION_URL}/history/${userId}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
@@ -118,5 +133,39 @@ export async function getHistory(userId) {
   } catch (error) {
     console.error('getHistory error:', error);
     return [];
+  }
+}
+
+export async function getProfile(userId) {
+  try {
+    const response = await fetch(`${FUNCTION_URL}/profile/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
+    });
+    if (!response.ok) return { name: null };
+    return await response.json();
+  } catch (error) {
+    return { name: null };
+  }
+}
+
+export async function saveProfile(userId, name) {
+  try {
+    const response = await fetch(`${FUNCTION_URL}/profile-save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({ userId, name }),
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('saveProfile error:', error);
+    return null;
   }
 }

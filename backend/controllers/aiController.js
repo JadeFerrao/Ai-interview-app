@@ -224,3 +224,31 @@ exports.getHistory = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+exports.getProfile = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('user_id', userId)
+      .single();
+    if (error) return res.json({ name: null });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.saveProfile = async (req, res) => {
+  const { userId, name } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({ user_id: userId, name: name })
+      .select();
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

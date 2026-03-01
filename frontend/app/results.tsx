@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Animated, RefreshControl } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getEvaluation } from '../services/api';
+import { getStoredUser } from '../services/userService';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Helper function to parse and format evaluation text
@@ -9,21 +10,21 @@ const parseEvaluation = (text: string) => {
     const sections: any[] = [];
     const lines = text.split('\n');
     let currentSection: any = null;
-    
+
     lines.forEach((line, index) => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return;
-        
+
         // Check for section headers
         if (trimmedLine.includes('**') || trimmedLine.match(/^\d+\./)) {
             // Extract score if present (e.g., "Technical Skills (1-10)" or "2/10")
             const scoreMatch = trimmedLine.match(/(\d+)\/(\d+)/);
             const ratingMatch = trimmedLine.match(/\((\d+)\/10\)/);
-            
+
             if (currentSection) {
                 sections.push(currentSection);
             }
-            
+
             currentSection = {
                 type: 'section',
                 title: trimmedLine.replace(/\*\*/g, '').replace(/^\d+\.\s*/, ''),
@@ -38,11 +39,11 @@ const parseEvaluation = (text: string) => {
             sections.push({ type: 'text', content: trimmedLine });
         }
     });
-    
+
     if (currentSection) {
         sections.push(currentSection);
     }
-    
+
     return sections;
 };
 
@@ -51,7 +52,7 @@ const ScoreBadge = ({ score, maxScore }: { score: number; maxScore: number }) =>
     const percentage = (score / maxScore) * 100;
     let bgColor = '#ef4444'; // red
     let textColor = '#fff';
-    
+
     if (percentage >= 80) {
         bgColor = '#10b981'; // green
     } else if (percentage >= 60) {
@@ -59,7 +60,7 @@ const ScoreBadge = ({ score, maxScore }: { score: number; maxScore: number }) =>
     } else if (percentage >= 40) {
         bgColor = '#f97316'; // orange-red
     }
-    
+
     return (
         <View style={[styles.scoreBadge, { backgroundColor: bgColor }]}>
             <Text style={[styles.scoreText, { color: textColor }]}>{score}/{maxScore}</Text>
@@ -71,6 +72,7 @@ export default function ResultsScreen() {
     const { interviewId } = useLocalSearchParams();
     const [evaluation, setEvaluation] = useState('');
     const [jobTitle, setJobTitle] = useState('');
+    const [candidateName, setCandidateName] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -90,6 +92,9 @@ export default function ResultsScreen() {
         }
 
         try {
+            const user = await getStoredUser();
+            if (user.userName) setCandidateName(user.userName);
+
             const data = await getEvaluation(interviewId);
             setEvaluation(data.evaluation || 'Evaluation data not available. Pull down to refresh.');
             setJobTitle(data.jobTitle || 'Developer Position');
@@ -100,7 +105,7 @@ export default function ResultsScreen() {
         } finally {
             setLoading(false);
             setRefreshing(false);
-            
+
             // Fade in animation
             Animated.timing(fadeAnim, {
                 toValue: 1,
@@ -133,7 +138,7 @@ export default function ResultsScreen() {
 
     return (
         <View style={styles.scrollContainer}>
-            <ScrollView 
+            <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 refreshControl={
                     <RefreshControl
@@ -149,6 +154,12 @@ export default function ResultsScreen() {
                     <View style={styles.pdfDocument}>
                         <View style={styles.pdfHeader}>
                             <Text style={styles.pdfTitle}>Interview Evaluation Report</Text>
+                            {candidateName && (
+                                <View style={styles.pdfMetadata}>
+                                    <Text style={styles.pdfMetaLabel}>Candidate:</Text>
+                                    <Text style={styles.pdfMetaValue}>{candidateName}</Text>
+                                </View>
+                            )}
                             <View style={styles.pdfMetadata}>
                                 <Text style={styles.pdfMetaLabel}>Position:</Text>
                                 <Text style={styles.pdfMetaValue}>{jobTitle}</Text>
@@ -158,9 +169,9 @@ export default function ResultsScreen() {
                                 <Text style={styles.pdfMetaValue}>{new Date().toLocaleDateString()}</Text>
                             </View>
                         </View>
-                        
+
                         <View style={styles.pdfDivider} />
-                        
+
                         {parsedSections.map((section, index) => {
                             if (section.type === 'text') {
                                 return (
@@ -169,7 +180,7 @@ export default function ResultsScreen() {
                                     </Text>
                                 );
                             }
-                            
+
                             return (
                                 <View key={index} style={styles.pdfSection}>
                                     <View style={styles.pdfSectionHeader}>
@@ -184,8 +195,8 @@ export default function ResultsScreen() {
                                         <View style={styles.pdfSectionContent}>
                                             {section.content.map((line: string, lineIndex: number) => (
                                                 <Text key={lineIndex} style={styles.pdfSectionText}>
-                                                    {line.startsWith('-') || line.startsWith('•') 
-                                                        ? `  ${line}` 
+                                                    {line.startsWith('-') || line.startsWith('•')
+                                                        ? `  ${line}`
                                                         : line}
                                                 </Text>
                                             ))}
@@ -194,7 +205,7 @@ export default function ResultsScreen() {
                                 </View>
                             );
                         })}
-                        
+
                         <View style={styles.pdfFooter}>
                             <Text style={styles.pdfFooterText}>
                                 {evaluation.includes('Pull down') ? 'Pull down to refresh' : 'End of Report'}
@@ -208,7 +219,7 @@ export default function ResultsScreen() {
 }
 
 const styles = StyleSheet.create({
-    scrollContainer: { 
+    scrollContainer: {
         flex: 1,
         backgroundColor: '#e5e7eb',
     },
@@ -246,7 +257,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6b7280',
     },
-    container: { 
+    container: {
         flex: 1,
         alignItems: 'center',
     },
