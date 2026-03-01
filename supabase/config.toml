@@ -1,0 +1,8 @@
+project_id = "pbbckkylxfnvujuqylay"
+
+[functions.interview-handler]
+
+import_map = "functions/import_map.json"
+verify_jwt = false
+
+
