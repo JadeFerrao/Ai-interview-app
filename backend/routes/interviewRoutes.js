@@ -7,4 +7,8 @@ router.post('/answer', aiController.processAnswer);
 router.get('/evaluation/:interviewId', aiController.getEvaluation);
 router.get('/history/:userId', aiController.getHistory);
 
+// Profile routes
+router.get('/profile/:userId', aiController.getProfile);
+router.post('/profile', aiController.saveProfile);
+
 module.exports = router;

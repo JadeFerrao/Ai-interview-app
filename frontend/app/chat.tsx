@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { startInterview, sendAnswer } from '../services/api';
+import { getStoredUser } from '../services/userService';
 
 interface Message {
   id: string;
@@ -28,17 +29,18 @@ export default function ChatScreen() {
   const initChat = async () => {
     setLoading(true);
     try {
-      const data = await startInterview(role, "temp-user-id");
+      const { userId } = await getStoredUser();
+      const data = await startInterview(role, userId || "temp-user-id");
       setInterviewId(data.interviewId);
       setQuestionNumber(data.questionNumber || 1);
       setMessages([{ id: '1', role: 'assistant', content: data.question }]);
     } catch (error) {
       console.error('Init chat error:', error);
       // Fallback message if initialization fails
-      setMessages([{ 
-        id: '1', 
-        role: 'assistant', 
-        content: `Welcome! Let's start your ${role} interview. Tell me about yourself.` 
+      setMessages([{
+        id: '1',
+        role: 'assistant',
+        content: `Welcome! Let's start your ${role} interview. Tell me about yourself.`
       }]);
     } finally {
       setLoading(false);
@@ -55,12 +57,12 @@ export default function ChatScreen() {
 
     try {
       const response = await sendAnswer(interviewId, inputText, messages);
-      
+
       if (response.isComplete) {
         const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: response.nextMessage };
         setMessages(prev => [...prev, aiMsg]);
         setIsInterviewComplete(true);
-        
+
         setTimeout(() => {
           router.push({ pathname: '/results', params: { interviewId } });
         }, 2000);
@@ -71,10 +73,10 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('Send answer error:', error);
-      const errorMsg: Message = { 
-        id: (Date.now() + 1).toString(), 
-        role: 'assistant', 
-        content: "I'm having trouble connecting right now, but let's continue. What else would you like to share?" 
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "I'm having trouble connecting right now, but let's continue. What else would you like to share?"
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
@@ -83,8 +85,8 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
       keyboardVerticalOffset={100}
     >
@@ -92,7 +94,7 @@ export default function ChatScreen() {
         <Text style={styles.headerText}>Question {questionNumber} of 7</Text>
         <Text style={styles.headerSubtext}>Take your time and be yourself</Text>
       </View>
-      
+
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -105,28 +107,28 @@ export default function ChatScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 10 }}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
-      
+
       {isProcessing && (
         <View style={styles.processingIndicator}>
           <ActivityIndicator size="small" color="#667eea" />
           <Text style={styles.processingText}>Thinking...</Text>
         </View>
       )}
-      
+
       <View style={styles.inputContainer}>
-        <TextInput 
-          style={[styles.input, isInterviewComplete && styles.inputDisabled]} 
-          value={inputText} 
-          onChangeText={setInputText} 
+        <TextInput
+          style={[styles.input, isInterviewComplete && styles.inputDisabled]}
+          value={inputText}
+          onChangeText={setInputText}
           placeholder={isInterviewComplete ? "Interview completed" : "Type your answer..."}
           placeholderTextColor="#a0aec0"
           editable={!isProcessing && !isInterviewComplete}
           multiline
           maxLength={1000}
         />
-        <TouchableOpacity 
-          style={[styles.sendBtn, (isProcessing || !inputText.trim() || isInterviewComplete) && styles.sendBtnDisabled]} 
-          onPress={handleSend} 
+        <TouchableOpacity
+          style={[styles.sendBtn, (isProcessing || !inputText.trim() || isInterviewComplete) && styles.sendBtnDisabled]}
+          onPress={handleSend}
           disabled={isProcessing || !inputText.trim() || isInterviewComplete}
           activeOpacity={0.7}
         >
@@ -140,11 +142,11 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f7fafc' 
+  container: {
+    flex: 1,
+    backgroundColor: '#f7fafc'
   },
-  header: { 
+  header: {
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
@@ -156,9 +158,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  headerText: { 
-    color: 'white', 
-    fontSize: 20, 
+  headerText: {
+    color: 'white',
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 5,
   },
@@ -167,10 +169,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  bubble: { 
-    padding: 16, 
-    borderRadius: 20, 
-    marginBottom: 12, 
+  bubble: {
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 12,
     maxWidth: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -178,24 +180,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  userBubble: { 
-    alignSelf: 'flex-end', 
+  userBubble: {
+    alignSelf: 'flex-end',
     backgroundColor: '#667eea',
     borderBottomRightRadius: 4,
   },
-  aiBubble: { 
-    alignSelf: 'flex-start', 
+  aiBubble: {
+    alignSelf: 'flex-start',
     backgroundColor: '#fff',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
-  userText: { 
+  userText: {
     color: 'white',
     fontSize: 16,
     lineHeight: 22,
   },
-  aiText: { 
+  aiText: {
     color: '#2d3748',
     fontSize: 16,
     lineHeight: 22,
@@ -213,19 +215,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  inputContainer: { 
-    flexDirection: 'row', 
-    padding: 15, 
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 15,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     alignItems: 'center',
   },
-  input: { 
-    flex: 1, 
-    borderWidth: 2, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 25, 
+  input: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 25,
     paddingHorizontal: 20,
     paddingVertical: 12,
     fontSize: 16,
@@ -236,12 +238,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     color: '#a0aec0',
   },
-  sendBtn: { 
-    marginLeft: 12, 
-    backgroundColor: '#667eea', 
+  sendBtn: {
+    marginLeft: 12,
+    backgroundColor: '#667eea',
     width: 50,
     height: 50,
-    borderRadius: 25, 
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#667eea',

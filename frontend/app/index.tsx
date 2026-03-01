@@ -1,12 +1,41 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import { getStoredUser, storeUser } from '../services/userService';
 
 export default function Home() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState('Junior Developer');
   const [modalVisible, setModalVisible] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [nameInputModalVisible, setNameInputModalVisible] = useState(false);
+  const [tempName, setTempName] = useState('');
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    const user = await getStoredUser();
+    if (user.userName && user.userId) {
+      setUserName(user.userName);
+      setUserId(user.userId);
+    } else {
+      setNameInputModalVisible(true);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!tempName.trim()) return;
+    const user = await storeUser(tempName.trim());
+    if (user) {
+      setUserName(user.userName);
+      setUserId(user.userId);
+      setNameInputModalVisible(false);
+    }
+  };
 
   const roles = [
     'Junior Developer',
@@ -36,6 +65,9 @@ export default function Home() {
       end={{ x: 1, y: 1 }}
     >
       <View style={styles.contentCard}>
+        {userName && (
+          <Text style={styles.welcomeText}>Welcome, {userName}!</Text>
+        )}
         <Text style={styles.title}>Ready for your interview?</Text>
         <Text style={styles.subtitle}>Let's ace this together</Text>
 
@@ -117,6 +149,39 @@ export default function Home() {
           </View>
         </View>
       </Modal>
+      <Modal
+        visible={nameInputModalVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>What's your name?</Text>
+            <Text style={styles.modalSubtitle}>To personalize your interview experience</Text>
+            <TextInput
+              style={styles.nameInput}
+              placeholder="Enter your name"
+              value={tempName}
+              onChangeText={setTempName}
+              autoFocus
+            />
+            <TouchableOpacity
+              style={[styles.startButton, !tempName.trim() && { opacity: 0.5 }]}
+              onPress={handleSaveName}
+              disabled={!tempName.trim()}
+            >
+              <ExpoLinearGradient
+                colors={['#f093fb', '#f5576c']}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.startButtonText}>Continue</Text>
+              </ExpoLinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ExpoLinearGradient>
   );
 }
@@ -142,16 +207,23 @@ const styles = StyleSheet.create({
     elevation: 15,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#2d3748',
     textAlign: 'center',
   },
+  welcomeText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#764ba2',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
   subtitle: {
     fontSize: 16,
     color: '#718096',
-    marginBottom: 40,
+    marginBottom: 30,
     textAlign: 'center',
   },
   pickerContainer: {
@@ -257,6 +329,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#2d3748',
   },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
   roleItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -296,5 +374,16 @@ const styles = StyleSheet.create({
     color: '#718096',
     fontSize: 16,
     fontWeight: '600',
+  },
+  nameInput: {
+    width: '100%',
+    backgroundColor: '#f7fafc',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 15,
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 20,
+    color: '#2d3748',
   },
 });

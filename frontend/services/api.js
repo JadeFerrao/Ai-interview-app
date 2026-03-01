@@ -120,3 +120,31 @@ export async function getHistory(userId) {
     return [];
   }
 }
+
+export async function getProfile(userId) {
+  try {
+    const response = await fetch(`${BASE_URL}/api/interview/profile/${userId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) return { name: null };
+    return await response.json();
+  } catch (error) {
+    return { name: null };
+  }
+}
+
+export async function saveProfile(userId, name) {
+  try {
+    const response = await fetch(`${BASE_URL}/api/interview/profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, name }),
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('saveProfile error:', error);
+    return null;
+  }
+}
