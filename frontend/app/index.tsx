@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { getStoredUser, storeUser, clearUser } from '../services/userService';
 
@@ -12,6 +13,7 @@ export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   const [nameInputModalVisible, setNameInputModalVisible] = useState(false);
   const [tempName, setTempName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -28,13 +30,18 @@ export default function Home() {
   };
 
   const handleSaveName = async () => {
-    if (!tempName.trim()) return;
-    const user = await storeUser(tempName.trim());
-    if (user) {
-      setUserName(user.userName);
-      setUserId(user.userId);
-      setNameInputModalVisible(false);
-      setTempName(''); // Clear for next time
+    if (!tempName.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      const user = await storeUser(tempName.trim());
+      if (user) {
+        setUserName(user.userName);
+        setUserId(user.userId);
+        setNameInputModalVisible(false);
+        setTempName('');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -73,6 +80,7 @@ export default function Home() {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
+      <StatusBar style="light" />
       <View style={styles.contentCard}>
         {userName && (
           <Text style={styles.welcomeText}>Welcome, {userName}!</Text>
@@ -182,12 +190,11 @@ export default function Home() {
               placeholder="Enter your name"
               value={tempName}
               onChangeText={setTempName}
-              autoFocus
             />
             <TouchableOpacity
-              style={[styles.startButton, !tempName.trim() && { opacity: 0.5 }]}
+              style={[styles.startButton, (!tempName.trim() || isSaving) && { opacity: 0.5 }]}
               onPress={handleSaveName}
-              disabled={!tempName.trim()}
+              disabled={!tempName.trim() || isSaving}
             >
               <ExpoLinearGradient
                 colors={['#f093fb', '#f5576c']}
@@ -195,7 +202,7 @@ export default function Home() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Text style={styles.startButtonText}>Continue</Text>
+                <Text style={styles.startButtonText}>{isSaving ? 'Saving...' : 'Continue'}</Text>
               </ExpoLinearGradient>
             </TouchableOpacity>
           </View>

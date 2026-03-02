@@ -169,3 +169,20 @@ export async function saveProfile(userId, name) {
     return null;
   }
 }
+
+export async function searchProfile(name) {
+  try {
+    const response = await fetch(`${FUNCTION_URL}/profile-search?name=${encodeURIComponent(name)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
+    });
+    if (!response.ok) return { user_id: null };
+    return await response.json();
+  } catch (error) {
+    console.error('searchProfile error:', error);
+    return { user_id: null };
+  }
+}

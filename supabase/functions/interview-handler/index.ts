@@ -240,6 +240,17 @@ Guidelines:
                 if (error) return new Response(JSON.stringify({ name: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
                 return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
+            if (action === 'profile-search') {
+                const name = searchParams.get('name');
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('user_id, name')
+                    .eq('name', name)
+                    .maybeSingle();
+
+                if (error) throw error;
+                return new Response(JSON.stringify(data || { user_id: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
         }
 
         return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
