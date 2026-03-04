@@ -36,6 +36,8 @@ serve(async (req: Request) => {
 
             if (action === 'start') {
                 const { jobTitle, userId } = body;
+                console.log('Starting interview for:', jobTitle, 'user:', userId);
+
                 const systemPrompt = `You are a professional and friendly technical interviewer conducting a ${jobTitle} interview. 
 
 Your role:
@@ -59,7 +61,18 @@ Start with a warm greeting and the first question.`;
                     })
                 });
 
+                if (!groqResponse.ok) {
+                    const errorText = await groqResponse.text();
+                    console.error('Groq API error:', groqResponse.status, errorText);
+                    throw new Error(`Groq API returned ${groqResponse.status}: ${errorText}`);
+                }
+
                 const groqData = await groqResponse.json();
+                if (!groqData.choices || groqData.choices.length === 0) {
+                    console.error('Unexpected Groq response format:', groqData);
+                    throw new Error('Groq API returned an empty or invalid response');
+                }
+
                 const firstQuestion = groqData.choices[0].message.content;
 
                 const { data, error } = await supabase.from('interviews').insert([{
@@ -69,7 +82,15 @@ Start with a warm greeting and the first question.`;
                     question_count: 1
                 }]).select();
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase insert error:', error);
+                    throw error;
+                }
+
+                if (!data || data.length === 0) {
+                    console.error('Supabase insert succeeded but returned no data');
+                    throw new Error('Failed to create interview record');
+                }
 
                 return new Response(JSON.stringify({ interviewId: data[0].id, question: firstQuestion, questionNumber: 1 }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -132,14 +153,25 @@ Format your response clearly with sections.`;
                         body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: cleanedMessages })
                     });
 
+                    if (!groqResponse.ok) {
+                        const errorText = await groqResponse.text();
+                        console.error('Groq API evaluation error:', groqResponse.status, errorText);
+                        throw new Error(`Groq API returned ${groqResponse.status} during evaluation`);
+                    }
+
                     const groqData = await groqResponse.json();
+                    if (!groqData.choices || groqData.choices.length === 0) {
+                        throw new Error('Groq API returned an invalid response for evaluation');
+                    }
                     const evaluation = groqData.choices[0].message.content;
 
-                    await supabase.from('interviews').update({
+                    const { error: updateError } = await supabase.from('interviews').update({
                         transcript: updatedTranscript,
                         evaluation: evaluation,
                         completed: true
                     }).eq('id', interviewId);
+
+                    if (updateError) throw updateError;
 
                     return new Response(JSON.stringify({
                         isComplete: true,
@@ -166,14 +198,25 @@ Guidelines:
                     body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: cleanedMessages })
                 });
 
+                if (!groqResponse.ok) {
+                    const errorText = await groqResponse.text();
+                    console.error('Groq API question error:', groqResponse.status, errorText);
+                    throw new Error(`Groq API returned ${groqResponse.status} during question generation`);
+                }
+
                 const groqData = await groqResponse.json();
+                if (!groqData.choices || groqData.choices.length === 0) {
+                    throw new Error('Groq API returned an invalid response for next question');
+                }
                 const aiMessage = groqData.choices[0].message.content;
 
                 const newTranscript = [...updatedTranscript, { role: 'assistant', content: aiMessage }];
-                await supabase.from('interviews').update({
+                const { error: finalUpdateError } = await supabase.from('interviews').update({
                     transcript: newTranscript,
                     question_count: nextQuestionCount
                 }).eq('id', interviewId);
+
+                if (finalUpdateError) throw finalUpdateError;
 
                 return new Response(JSON.stringify({
                     nextMessage: aiMessage,
@@ -189,6 +232,9 @@ Guidelines:
                     .upsert({ user_id: userId, name: name })
                     .select();
                 if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error('Failed to save profile');
+                }
                 return new Response(JSON.stringify(data[0]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
         }
@@ -196,10 +242,31 @@ Guidelines:
         if (req.method === 'GET') {
             const { pathname } = new URL(req.url);
             const parts = pathname.split('/');
-            // Expected: /interview-handler/evaluation/:id or /interview-handler/history/:userId
+            // Paths: 
+            // /interview-handler/evaluation/:id -> parts: ["", "...", "evaluation", "id"]
+            // /interview-handler/history/:userId -> parts: ["", "...", "history", "id"]
+            // /interview-handler/profile/:userId -> parts: ["", "...", "profile", "id"]
+            // /interview-handler/profile-search -> parts: ["", "...", "profile-search"]
 
-            const action = parts[parts.length - 2];
-            const id = parts[parts.length - 1];
+            const lastPart = parts[parts.length - 1];
+            const secondToLastPart = parts[parts.length - 2];
+
+            // 1. Check for profile-search (no trailing ID)
+            if (lastPart === 'profile-search') {
+                const name = searchParams.get('name');
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('user_id, name')
+                    .eq('name', name)
+                    .maybeSingle();
+
+                if (error) throw error;
+                return new Response(JSON.stringify(data || { user_id: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
+            // 2. Check for endpoints with ID parameter
+            const action = secondToLastPart;
+            const id = lastPart;
 
             if (action === 'evaluation') {
                 const { data, error } = await supabase

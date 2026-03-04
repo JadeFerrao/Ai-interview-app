@@ -1,16 +1,34 @@
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/interview-handler`;
+const getSupabaseConfig = () => {
+  return {
+    url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  };
+};
+
+const getFunctionUrl = () => {
+  const { url } = getSupabaseConfig();
+  if (!url) return null;
+  return `${url}/functions/v1/interview-handler`;
+};
+
+const getHeaders = () => {
+  const { anonKey } = getSupabaseConfig();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${anonKey}`,
+    'apikey': anonKey
+  };
+};
 
 
 export async function startInterview(role, userId) {
+  const FUNCTION_URL = getFunctionUrl();
+  if (!FUNCTION_URL) throw new Error('Supabase URL not configured');
+
   try {
     const response = await fetch(`${FUNCTION_URL}/start`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ jobTitle: role, userId }),
     });
     if (!response.ok) {
@@ -23,13 +41,14 @@ export async function startInterview(role, userId) {
     // Return a mock response so the UI doesn't crash when backend is offline
     return {
       interviewId: 'mock-id-' + Date.now(),
-      question: `Welcome! Let's wait for your ${role} interview to start.`,
+      question: `Welcome! I'm your interviewer today. Since we're having connection issues, let's start with a general question: Tell me about your experience as a ${role}.`,
       questionNumber: 1,
     };
   }
 }
 
 export async function sendAnswer(interviewId, answer, history) {
+  const FUNCTION_URL = getFunctionUrl();
   const maxRetries = 3;
   let lastError;
 
@@ -37,10 +56,7 @@ export async function sendAnswer(interviewId, answer, history) {
     try {
       const response = await fetch(`${FUNCTION_URL}/answer`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        },
+        headers: getHeaders(),
         body: JSON.stringify({ interviewId, answer, transcript: history }),
       });
 
@@ -74,58 +90,38 @@ export async function sendAnswer(interviewId, answer, history) {
   // All retries failed, handle gracefully
   console.error('sendAnswer error after retries:', lastError);
 
-  // Check answer quality for mock response
-  const answerLength = answer.trim().length;
-  const wordCount = answer.trim().split(/\s+/).length;
-
-  // If answer is too short or just "yes/no", push back
-  if (wordCount <= 3 || answerLength < 15) {
-    return {
-      nextMessage: "I appreciate your response, but could you elaborate more on that? In a real interview, we'd want to hear more details about your experience and thought process. Please provide a more comprehensive answer.",
-      isComplete: false,
-      questionNumber: history.filter(m => m.role === 'assistant').length,
-    };
-  }
-
   // Return a mock response that's more realistic
-  const questionNum = history.filter(m => m.role === 'assistant').length;
   return {
-    nextMessage: "Thank you for sharing that. Let me ask you another question to better understand your skills.",
+    nextMessage: "Thank you for sharing that. I'm having a bit of trouble connecting to my brain right now, but please continue telling me more about your skills.",
     isComplete: false,
-    questionNumber: questionNum + 1,
+    questionNumber: history.filter(m => m.role === 'assistant').length + 1,
   };
 }
 
 export async function getEvaluation(interviewId) {
+  const FUNCTION_URL = getFunctionUrl();
   try {
     const response = await fetch(`${FUNCTION_URL}/evaluation/${interviewId}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
+      headers: getHeaders(),
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   } catch (error) {
     console.error('getEvaluation error:', error);
-
-    // Return a more detailed mock evaluation
     return {
-      evaluation: `Thank you for completing this interview practice session!\n\nWhile we couldn't connect to the evaluation service, here's what you should focus on:\n\n✓ Provide detailed, thoughtful answers\n✓ Use specific examples from your experience\n✓ Explain your reasoning and decision-making process\n✓ Show enthusiasm and genuine interest\n\nRemember: One-word answers like "yes" or "no" won't showcase your skills. Take your time to elaborate on your thoughts and experiences.\n\nKeep practicing, and you'll do great in your real interview!`,
+      evaluation: `Great job completing the practice! We're having trouble generating your detailed AI evaluation right now, but keep practicing to stay sharp.`,
       jobTitle: 'Developer',
     };
   }
 }
 
 export async function getHistory(userId) {
+  const FUNCTION_URL = getFunctionUrl();
   try {
     const response = await fetch(`${FUNCTION_URL}/history/${userId}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
+      headers: getHeaders(),
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
@@ -137,13 +133,11 @@ export async function getHistory(userId) {
 }
 
 export async function getProfile(userId) {
+  const FUNCTION_URL = getFunctionUrl();
   try {
     const response = await fetch(`${FUNCTION_URL}/profile/${userId}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
+      headers: getHeaders(),
     });
     if (!response.ok) return { name: null };
     return await response.json();
@@ -153,13 +147,11 @@ export async function getProfile(userId) {
 }
 
 export async function saveProfile(userId, name) {
+  const FUNCTION_URL = getFunctionUrl();
   try {
     const response = await fetch(`${FUNCTION_URL}/profile-save`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ userId, name }),
     });
     if (!response.ok) return null;
@@ -167,5 +159,20 @@ export async function saveProfile(userId, name) {
   } catch (error) {
     console.error('saveProfile error:', error);
     return null;
+  }
+}
+
+export async function searchProfile(name) {
+  const FUNCTION_URL = getFunctionUrl();
+  try {
+    const response = await fetch(`${FUNCTION_URL}/profile-search?name=${encodeURIComponent(name)}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    if (!response.ok) return { user_id: null };
+    return await response.json();
+  } catch (error) {
+    console.error('searchProfile error:', error);
+    return { user_id: null };
   }
 }

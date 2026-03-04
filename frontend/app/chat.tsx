@@ -105,7 +105,11 @@ export default function ChatScreen() {
           </View>
         )}
         contentContainerStyle={{ padding: 20, paddingBottom: 10 }}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (messages.length > 0) {
+            flatListRef.current?.scrollToEnd({ animated: Platform.OS === 'ios' });
+          }
+        }}
       />
 
       {isProcessing && (

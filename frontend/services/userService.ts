@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getProfile, saveProfile } from './api';
+import { getProfile, saveProfile, searchProfile } from './api';
 
 const USER_ID_KEY = 'user_id';
 const USER_NAME_KEY = 'user_name';
@@ -27,11 +27,18 @@ export async function getStoredUser() {
 
 export async function storeUser(name: string) {
     try {
-        const userId = 'user-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+        // Try to find if this name already has a profile to avoid duplicates
+        const existingProfile = await searchProfile(name);
+        let userId = existingProfile?.user_id;
+
+        if (!userId) {
+            userId = 'user-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+        }
+
         await AsyncStorage.setItem(USER_ID_KEY, userId);
         await AsyncStorage.setItem(USER_NAME_KEY, name);
 
-        // Sync with server (Supabase)
+        // Sync with server (Supabase) - upsert handles it
         await saveProfile(userId, name);
 
         return { userId, userName: name };
