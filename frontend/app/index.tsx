@@ -1,57 +1,78 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import { getStoredUser, storeUser, clearUser } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
+import Auth from '../components/Auth';
+import { supabase } from '../services/supabase';
 
 export default function Home() {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [selectedRole, setSelectedRole] = useState('Junior Developer');
   const [modalVisible, setModalVisible] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [nameInputModalVisible, setNameInputModalVisible] = useState(false);
-  const [tempName, setTempName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    const user = await getStoredUser();
-    if (user.userName && user.userId) {
-      setUserName(user.userName);
-      setUserId(user.userId);
-    } else {
-      setNameInputModalVisible(true);
+    if (user) {
+      fetchProfile();
     }
-  };
+  }, [user]);
 
-  const handleSaveName = async () => {
-    if (!tempName.trim() || isSaving) return;
-    setIsSaving(true);
+  const fetchProfile = async () => {
+    if (!user) return;
+    setProfileLoading(true);
     try {
-      const user = await storeUser(tempName.trim());
-      if (user) {
-        setUserName(user.userName);
-        setUserId(user.userId);
-        setNameInputModalVisible(false);
-        setTempName('');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (data) {
+        setUserName(data.name);
+      } else {
+        // Fallback to user metadata if profile not found
+        setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'User');
       }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
     } finally {
-      setIsSaving(false);
+      setProfileLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await clearUser();
+    const { error } = await supabase.auth.signOut();
+    if (error) Alert.alert('Error', error.message);
     setUserName(null);
-    setUserId(null);
-    setTempName('');
-    setNameInputModalVisible(true);
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ExpoLinearGradient
+        colors={['#667eea', '#764ba2', '#f093fb']}
+        style={styles.container}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <StatusBar style="light" />
+        <View style={styles.contentCard}>
+          <Auth />
+        </View>
+      </ExpoLinearGradient>
+    );
+  }
 
   const roles = [
     'Junior Developer',
@@ -131,7 +152,7 @@ export default function Home() {
             onPress={handleLogout}
             activeOpacity={0.7}
           >
-            <Text style={styles.logoutButtonText}>Switch User</Text>
+            <Text style={styles.logoutButtonText}>Sign Out</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -172,38 +193,6 @@ export default function Home() {
               onPress={() => setModalVisible(false)}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        visible={nameInputModalVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>What's your name?</Text>
-            <Text style={styles.modalSubtitle}>To personalize your interview experience</Text>
-            <TextInput
-              style={styles.nameInput}
-              placeholder="Enter your name"
-              value={tempName}
-              onChangeText={setTempName}
-            />
-            <TouchableOpacity
-              style={[styles.startButton, (!tempName.trim() || isSaving) && { opacity: 0.5 }]}
-              onPress={handleSaveName}
-              disabled={!tempName.trim() || isSaving}
-            >
-              <ExpoLinearGradient
-                colors={['#f093fb', '#f5576c']}
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.startButtonText}>{isSaving ? 'Saving...' : 'Continue'}</Text>
-              </ExpoLinearGradient>
             </TouchableOpacity>
           </View>
         </View>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { startInterview, sendAnswer } from '../services/api';
-import { getStoredUser } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
 
 interface Message {
   id: string;
@@ -13,6 +13,7 @@ interface Message {
 export default function ChatScreen() {
   const { role, completed } = useLocalSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,8 +30,7 @@ export default function ChatScreen() {
   const initChat = async () => {
     setLoading(true);
     try {
-      const { userId } = await getStoredUser();
-      const data = await startInterview(role, userId || "temp-user-id");
+      const data = await startInterview(role, user?.id || "temp-user-id");
       setInterviewId(data.interviewId);
       setQuestionNumber(data.questionNumber || 1);
       setMessages([{ id: '1', role: 'assistant', content: data.question }]);
