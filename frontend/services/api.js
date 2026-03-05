@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 const getSupabaseConfig = () => {
   return {
     url: process.env.EXPO_PUBLIC_SUPABASE_URL,
@@ -11,11 +13,13 @@ const getFunctionUrl = () => {
   return `${url}/functions/v1/interview-handler`;
 };
 
-const getHeaders = () => {
+const getHeaders = async () => {
   const { anonKey } = getSupabaseConfig();
+  const { data: { session } } = await supabase.auth.getSession();
+
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${anonKey}`,
+    'Authorization': `Bearer ${session?.access_token || anonKey}`,
     'apikey': anonKey
   };
 };
@@ -28,7 +32,7 @@ export async function startInterview(role, userId) {
   try {
     const response = await fetch(`${FUNCTION_URL}/start`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify({ jobTitle: role, userId }),
     });
     if (!response.ok) {
@@ -56,7 +60,7 @@ export async function sendAnswer(interviewId, answer, history) {
     try {
       const response = await fetch(`${FUNCTION_URL}/answer`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers: await getHeaders(),
         body: JSON.stringify({ interviewId, answer, transcript: history }),
       });
 
@@ -103,7 +107,7 @@ export async function getEvaluation(interviewId) {
   try {
     const response = await fetch(`${FUNCTION_URL}/evaluation/${interviewId}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
@@ -121,7 +125,7 @@ export async function getHistory(userId) {
   try {
     const response = await fetch(`${FUNCTION_URL}/history/${userId}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
@@ -137,7 +141,7 @@ export async function getProfile(userId) {
   try {
     const response = await fetch(`${FUNCTION_URL}/profile/${userId}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!response.ok) return { name: null };
     return await response.json();
@@ -151,7 +155,7 @@ export async function saveProfile(userId, name) {
   try {
     const response = await fetch(`${FUNCTION_URL}/profile-save`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify({ userId, name }),
     });
     if (!response.ok) return null;
@@ -167,7 +171,7 @@ export async function searchProfile(name) {
   try {
     const response = await fetch(`${FUNCTION_URL}/profile-search?name=${encodeURIComponent(name)}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!response.ok) return { user_id: null };
     return await response.json();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getHistory } from '../services/api';
-import { getStoredUser } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 interface InterviewHistory {
@@ -14,6 +14,7 @@ interface InterviewHistory {
 
 export default function HistoryScreen() {
     const router = useRouter();
+    const { user } = useAuth();
     const [history, setHistory] = useState<InterviewHistory[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -27,8 +28,7 @@ export default function HistoryScreen() {
         else setRefreshing(true);
 
         try {
-            const { userId } = await getStoredUser();
-            const data = await getHistory(userId || "temp-user-id");
+            const data = await getHistory(user?.id || "temp-user-id");
             setHistory(data);
         } catch (error) {
             console.error('Fetch history error:', error);

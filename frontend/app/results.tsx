@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Animated, RefreshControl } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getEvaluation } from '../services/api';
-import { getStoredUser } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { supabase } from '../services/supabase';
 
 // Helper function to parse and format evaluation text
 const parseEvaluation = (text: string) => {
@@ -70,6 +71,7 @@ const ScoreBadge = ({ score, maxScore }: { score: number; maxScore: number }) =>
 
 export default function ResultsScreen() {
     const { interviewId } = useLocalSearchParams();
+    const { user } = useAuth();
     const [evaluation, setEvaluation] = useState('');
     const [jobTitle, setJobTitle] = useState('');
     const [candidateName, setCandidateName] = useState('');
@@ -92,10 +94,22 @@ export default function ResultsScreen() {
         }
 
         try {
-            const user = await getStoredUser();
-            if (user.userName) setCandidateName(user.userName);
+            if (user) {
+                // Try to get name from profiles table first
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('name')
+                    .eq('user_id', user.id)
+                    .single();
 
-            const data = await getEvaluation(interviewId);
+                if (profile?.name) {
+                    setCandidateName(profile.name);
+                } else {
+                    setCandidateName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Candidate');
+                }
+            }
+
+            const data = await getEvaluation(interviewId as string);
             setEvaluation(data.evaluation || 'Evaluation data not available. Pull down to refresh.');
             setJobTitle(data.jobTitle || 'Developer Position');
         } catch (error) {

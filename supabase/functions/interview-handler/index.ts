@@ -15,10 +15,23 @@ serve(async (req: Request) => {
 
     try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-        const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
         const groqApiKey = Deno.env.get('GROQ_API_KEY') ?? '';
 
         const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Get the JWT from the Authorization header
+        const authHeader = req.headers.get('Authorization');
+        let authenticatedUserId: string | null = null;
+
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+            if (!authError && user) {
+                authenticatedUserId = user.id;
+            }
+        }
+
         const { pathname, searchParams } = new URL(req.url);
         const action = pathname.split('/').pop();
 
@@ -35,8 +48,11 @@ serve(async (req: Request) => {
             const body = await req.json();
 
             if (action === 'start') {
-                const { jobTitle, userId } = body;
-                console.log('Starting interview for:', jobTitle, 'user:', userId);
+                if (!authenticatedUserId) {
+                    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                }
+                const { jobTitle } = body;
+                console.log('Starting interview for:', jobTitle, 'user:', authenticatedUserId);
 
                 const systemPrompt = `You are a professional and friendly technical interviewer conducting a ${jobTitle} interview. 
 
@@ -76,7 +92,7 @@ Start with a warm greeting and the first question.`;
                 const firstQuestion = groqData.choices[0].message.content;
 
                 const { data, error } = await supabase.from('interviews').insert([{
-                    user_id: userId,
+                    user_id: authenticatedUserId,
                     job_title: jobTitle,
                     transcript: [{ role: 'assistant', content: firstQuestion }],
                     question_count: 1
@@ -226,10 +242,13 @@ Guidelines:
             }
 
             if (action === 'profile-save') {
-                const { userId, name } = body;
+                if (!authenticatedUserId) {
+                    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                }
+                const { name } = body;
                 const { data, error } = await supabase
                     .from('profiles')
-                    .upsert({ user_id: userId, name: name })
+                    .upsert({ user_id: authenticatedUserId, name: name })
                     .select();
                 if (error) throw error;
                 if (!data || data.length === 0) {
@@ -287,10 +306,14 @@ Guidelines:
             }
 
             if (action === 'history') {
+                if (!authenticatedUserId) {
+                    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                }
+
                 const { data, error } = await supabase
                     .from('interviews')
                     .select('id, job_title, created_at, completed')
-                    .eq('user_id', id)
+                    .eq('user_id', authenticatedUserId)
                     .order('created_at', { ascending: false });
 
                 if (error) throw error;
@@ -298,10 +321,14 @@ Guidelines:
             }
 
             if (action === 'profile') {
+                if (!authenticatedUserId) {
+                    return new Response(JSON.stringify({ name: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('name')
-                    .eq('user_id', id)
+                    .eq('user_id', authenticatedUserId)
                     .single();
 
                 if (error) return new Response(JSON.stringify({ name: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
